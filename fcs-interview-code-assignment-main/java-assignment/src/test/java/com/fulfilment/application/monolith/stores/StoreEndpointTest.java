@@ -27,9 +27,9 @@ public class StoreEndpointTest {
 
   @Test
   public void listsAndReadsStores() {
-    given().when().get("store").then().statusCode(200).body(containsString("TONSTAD"));
+    given().when().get("store").then().statusCode(200).body(containsString("Zwolle Store"));
 
-    given().when().get("store/1").then().statusCode(200).body(containsString("TONSTAD"));
+    given().when().get("store/1").then().statusCode(200).body(containsString("Zwolle Store"));
 
     given()
         .when()

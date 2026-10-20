@@ -1,6 +1,6 @@
-INSERT INTO store(id, name, quantityProductsInStock) VALUES (1, 'TONSTAD', 10);
-INSERT INTO store(id, name, quantityProductsInStock) VALUES (2, 'KALLAX', 5);
-INSERT INTO store(id, name, quantityProductsInStock) VALUES (3, 'BESTÅ', 3);
+INSERT INTO store(id, name, quantityProductsInStock) VALUES (1, 'Zwolle Store', 10);
+INSERT INTO store(id, name, quantityProductsInStock) VALUES (2, 'Amsterdam Store', 5);
+INSERT INTO store(id, name, quantityProductsInStock) VALUES (3, 'Tilburg Store', 3);
 ALTER SEQUENCE store_seq RESTART WITH 4;
 
 INSERT INTO product(id, name, stock) VALUES (1, 'TONSTAD', 10);

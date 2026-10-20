@@ -103,7 +103,7 @@ public class WarehouseEndpointTest {
 
     given()
         .contentType(ContentType.JSON)
-        .body(body("MWH.CAP", "VETSBY-001", 95, 1))
+        .body(body("MWH.CAP", "AMSTERDAM-001", 60, 1))
         .when()
         .post("warehouse")
         .then()

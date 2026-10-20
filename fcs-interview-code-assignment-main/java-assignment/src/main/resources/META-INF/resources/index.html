@@ -5,6 +5,15 @@
     <title>Hibernate ORM with Panache quickstart - Quarkus</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/wingcss/0.1.8/wing.min.css"/>
     <style>
+        body {
+            background: #ffffff;
+            color: #222222;
+        }
+        select {
+            width: 100%;
+            margin: 8px 0;
+            padding: 8px;
+        }
         input[type=number] {
             width: 100%;
             padding: 12px 20px;
@@ -18,6 +27,11 @@
             outline: 0;
             font-family: 'Open Sans', serif;
         }
+        a.row-btn {
+            display: inline-block;
+            margin: 0;
+            padding: 8px 12px;
+        }
     </style>
     <!-- Load AngularJS -->
     <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.min.js"></script>
@@ -29,14 +43,22 @@
 
         //Initialize page with default data which is blank in this example
         $scope.products = [];
+        $scope.stores = [];
+        $scope.warehouses = [];
+        $scope.fulfilments = [];
 
-        $scope.form = {
-          id: -1,
-          name: ""
-        };
+        $scope.locations = [
+          "ZWOLLE-001", "ZWOLLE-002", "AMSTERDAM-001", "AMSTERDAM-002",
+          "TILBURG-001", "HELMOND-001", "EINDHOVEN-001", "VETSBY-001"
+        ];
+        $scope.form = { id: -1, name: "", stock: 0 };
+        $scope.storeForm = { id: null, name: "", quantityProductsInStock: 0 };
+        $scope.warehouseForm = {};
+        $scope.fulfilmentForm = {};
 
         //Now load the data from server
         _refreshPageData();
+        _refreshFulfilmentData();
 
         //HTTP POST/PUT methods for add/edit products
         $scope.update = function () {
@@ -48,11 +70,13 @@
             method = "POST";
             url = '/product';
             data.name = $scope.form.name;
+            data.stock = Number($scope.form.stock || 0);
           } else {
             //If Id is present, it's edit operation - PUT operation
             method = "PUT";
             url = '/product/' + $scope.form.id;
             data.name = $scope.form.name;
+            data.stock = Number($scope.form.stock || 0);
           }
 
           $http({
@@ -76,7 +100,72 @@
         //In case of edit products, populate form with product data
         $scope.edit = function (product) {
           $scope.form.name = product.name;
+          $scope.form.stock = product.stock;
           $scope.form.id = product.id;
+        };
+
+        $scope.editStore = function (store) {
+          $scope.storeForm = {
+            id: store.id,
+            name: store.name,
+            quantityProductsInStock: store.quantityProductsInStock
+          };
+          $scope.storeError = null;
+        };
+
+        $scope.saveStore = function () {
+          var editing = $scope.storeForm.id != null;
+          $http({
+            method: editing ? "PUT" : "POST",
+            url: editing ? "/store/" + $scope.storeForm.id : "/store",
+            data: angular.toJson({
+              name: $scope.storeForm.name,
+              quantityProductsInStock: Number($scope.storeForm.quantityProductsInStock || 0)
+            }),
+            headers: { "Content-Type": "application/json" }
+          }).then(function () {
+            $scope.storeForm = { id: null, name: "", quantityProductsInStock: 0 };
+            $scope.storeError = null;
+            _refreshFulfilmentData();
+          }, function (response) {
+            $scope.storeError = _message(response);
+          });
+        };
+
+        $scope.removeStore = function (store) {
+          $http.delete("/store/" + store.id).then(function () {
+            _refreshFulfilmentData();
+          }, function (response) {
+            $scope.storeError = _message(response);
+          });
+        };
+
+        $scope.saveWarehouse = function () {
+          $http({
+            method: "POST",
+            url: "/warehouse",
+            data: angular.toJson({
+              businessUnitCode: $scope.warehouseForm.businessUnitCode,
+              location: $scope.warehouseForm.location,
+              capacity: Number($scope.warehouseForm.capacity),
+              stock: Number($scope.warehouseForm.stock)
+            }),
+            headers: { "Content-Type": "application/json" }
+          }).then(function () {
+            $scope.warehouseForm = {};
+            $scope.warehouseError = null;
+            _refreshFulfilmentData();
+          }, function (response) {
+            $scope.warehouseError = _message(response);
+          });
+        };
+
+        $scope.archiveWarehouse = function (warehouse) {
+          $http.delete("/warehouse/" + warehouse.id).then(function () {
+            _refreshFulfilmentData();
+          }, function (response) {
+            $scope.warehouseError = _message(response);
+          });
         };
 
           /* Private Methods */
@@ -92,18 +181,74 @@
           });
         }
 
+        $scope.storeName = function (id) {
+          var match = $scope.stores.filter(function (store) { return store.id == id; })[0];
+          return match ? match.name : id;
+        };
+
+        $scope.productName = function (id) {
+          var match = $scope.products.filter(function (product) { return product.id == id; })[0];
+          return match ? match.name : id;
+        };
+
+        $scope.warehouseName = function (id) {
+          var match = $scope.warehouses.filter(function (warehouse) { return warehouse.id == id; })[0];
+          return match ? match.businessUnitCode + " (" + match.location + ")" : id;
+        };
+
+        $scope.addFulfilment = function () {
+          $http({
+            method: "POST",
+            url: "/fulfilment",
+            data: angular.toJson({
+              storeId: Number($scope.fulfilmentForm.storeId),
+              productId: Number($scope.fulfilmentForm.productId),
+              warehouseId: Number($scope.fulfilmentForm.warehouseId)
+            }),
+            headers: {
+              "Content-Type": "application/json"
+            }
+          }).then(function () {
+            $scope.fulfilmentForm = {};
+            $scope.fulfilmentError = null;
+            _refreshFulfilmentData();
+          }, function (response) {
+            var body = response.data || {};
+            $scope.fulfilmentError = body.error || body.message || response.statusText;
+          });
+        };
+
+        $scope.removeFulfilment = function (link) {
+          $http({
+            method: "DELETE",
+            url: "/fulfilment/" + link.id
+          }).then(_refreshFulfilmentData, _error);
+        };
+
         function _success(response) {
           _refreshPageData();
           _clearForm()
         }
 
+        function _refreshFulfilmentData() {
+          $http.get("/store").then(function (response) { $scope.stores = response.data; });
+          $http.get("/warehouse").then(function (response) { $scope.warehouses = response.data; });
+          $http.get("/fulfilment").then(function (response) { $scope.fulfilments = response.data; });
+        }
+
+        function _message(response) {
+          var body = response.data || {};
+          return body.error || body.message || response.statusText;
+        }
+
         function _error(response) {
-          alert(response.data.message || response.statusText);
+          alert(_message(response));
         }
 
         //Clear the form
         function _clearForm() {
           $scope.form.name = "";
+          $scope.form.stock = 0;
           $scope.form.id = -1;
         }
       });
@@ -117,23 +262,109 @@
         This management interface invokes the CRUD service endpoint, which interacts with a database using JPA and several other well known libraries.
     </p>
 
-    <h3>Add/Edit an Product to the Warehouse</h3>
+    <h3>1. Stores</h3>
+    <p>Create a store by itself. Nothing here chooses a product or a warehouse.</p>
+    <form ng-submit="saveStore()">
+        <div class="row">
+            <div class="col-6"><input type="text" placeholder="Store name" ng-model="storeForm.name" required/></div>
+            <div class="col-4"><input type="number" min="0" placeholder="Items in stock" ng-model="storeForm.quantityProductsInStock" required/></div>
+        </div>
+        <input type="submit" value="{{ storeForm.id ? 'Update store' : 'Save store' }}"/>
+    </form>
+    <p ng-if="storeError" style="color:#9b1c1c;font-weight:600;">{{ storeError }}</p>
+    <div class="row" ng-repeat="store in stores">
+        <div class="col-3">{{ store.name }}</div>
+        <div class="col-3">{{ store.quantityProductsInStock }} in stock</div>
+        <div class="col-3"><a ng-click="editStore(store)" class="btn row-btn">Edit</a></div>
+        <div class="col-3"><a ng-click="removeStore(store)" class="btn row-btn">Remove</a></div>
+    </div>
+
+    <h3>2. Products</h3>
+    <p>Create a product by itself. Linking it to a warehouse happens in the last section.</p>
     <form ng-submit="update()">
         <div class="row">
-            <div class="col-6"><input type="text" placeholder="Name" ng-model="form.name" size="60"/></div>
+            <div class="col-6"><input type="text" placeholder="Product name" ng-model="form.name" required/></div>
+            <div class="col-4"><input type="number" min="0" placeholder="Stock" ng-model="form.stock"/></div>
         </div>
-        <input type="submit" value="Save"/>
+        <input type="submit" value="Save product"/>
     </form>
-
-    <h3>Product List</h3>
-    <div class="row">
-        <div class="col-2">Name</div>
-    </div>
     <div class="row" ng-repeat="product in products">
-        <div class="col-2">{{ product.name }}</div>
-        <div class="col-8"><a ng-click="edit( product )" class="btn">Edit</a> <a ng-click="remove( product )" class="btn">Remove</a>
-        </div>
+        <div class="col-3">{{ product.name }}</div>
+        <div class="col-3">stock {{ product.stock }}</div>
+        <div class="col-3"><a ng-click="edit(product)" class="btn row-btn">Edit</a></div>
+        <div class="col-3"><a ng-click="remove(product)" class="btn row-btn">Remove</a></div>
     </div>
+
+    <h3>3. Warehouses</h3>
+    <p>Create a warehouse at a known location. Capacity must cover its stock and fit the location limits.</p>
+    <form ng-submit="saveWarehouse()">
+        <div class="row">
+            <div class="col-3"><input type="text" placeholder="Business unit code" ng-model="warehouseForm.businessUnitCode" required/></div>
+            <div class="col-3">
+                <select ng-model="warehouseForm.location" required>
+                    <option value="">Location</option>
+                    <option ng-repeat="location in locations" value="{{ location }}">{{ location }}</option>
+                </select>
+            </div>
+            <div class="col-2"><input type="number" min="1" placeholder="Capacity" ng-model="warehouseForm.capacity" required/></div>
+            <div class="col-2"><input type="number" min="0" placeholder="Stock" ng-model="warehouseForm.stock" required/></div>
+        </div>
+        <input type="submit" value="Save warehouse"/>
+    </form>
+    <p ng-if="warehouseError" style="color:#9b1c1c;font-weight:600;">{{ warehouseError }}</p>
+    <div class="row" ng-repeat="warehouse in warehouses">
+        <div class="col-3">{{ warehouse.businessUnitCode }}</div>
+        <div class="col-3">{{ warehouse.location }}</div>
+        <div class="col-3">capacity {{ warehouse.capacity }}, stock {{ warehouse.stock }}</div>
+        <div class="col-3"><a ng-click="archiveWarehouse(warehouse)" class="btn row-btn">Archive</a></div>
+    </div>
+
+    <h3>4. Link a product to a warehouse for a store</h3>
+    <p>Choose which warehouse supplies a product to a store. Saved links come from <code>/fulfilment</code>.</p>
+    <ul>
+        <li>Each product can be fulfilled by at most 2 different warehouses per store.</li>
+        <li>Each store can be fulfilled by at most 3 different warehouses.</li>
+        <li>Each warehouse can store at most 5 product types.</li>
+    </ul>
+    <p ng-if="fulfilmentError" style="color:#9b1c1c;font-weight:600;">{{ fulfilmentError }}</p>
+    <form ng-submit="addFulfilment()">
+        <div class="row">
+            <div class="col-4">
+                <label>Store</label>
+                <select ng-model="fulfilmentForm.storeId" required>
+                    <option value="">Choose a store</option>
+                    <option ng-repeat="store in stores" value="{{ store.id }}">Store: {{ store.name }}</option>
+                </select>
+            </div>
+            <div class="col-4">
+                <label>Product</label>
+                <select ng-model="fulfilmentForm.productId" required>
+                    <option value="">Choose a product</option>
+                    <option ng-repeat="product in products" value="{{ product.id }}">Product: {{ product.name }}</option>
+                </select>
+            </div>
+            <div class="col-4">
+                <label>Warehouse</label>
+                <select ng-model="fulfilmentForm.warehouseId" required>
+                    <option value="">Choose a warehouse</option>
+                    <option ng-repeat="warehouse in warehouses" value="{{ warehouse.id }}">{{ warehouse.businessUnitCode }} ({{ warehouse.location }})</option>
+                </select>
+            </div>
+        </div>
+        <input type="submit" value="Link warehouse"/>
+    </form>
+    <div class="row">
+        <div class="col-3">Store</div>
+        <div class="col-3">Product</div>
+        <div class="col-4">Warehouse</div>
+    </div>
+    <div class="row" ng-repeat="link in fulfilments">
+        <div class="col-3">{{ storeName(link.storeId) }}</div>
+        <div class="col-3">{{ productName(link.productId) }}</div>
+        <div class="col-4">{{ warehouseName(link.warehouseId) }}</div>
+        <div class="col-2"><a ng-click="removeFulfilment(link)" class="btn">Remove</a></div>
+    </div>
+    <p ng-if="fulfilments.length === 0">No fulfilment links yet.</p>
 
     <p>Behind the scenes, we have:
         <ul>
