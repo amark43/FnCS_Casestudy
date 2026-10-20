@@ -75,6 +75,14 @@ java -jar ./target/quarkus-app/quarkus-run.jar
     Have a look at how fast it boots.
     Or measure total native memory consumption...
 
+Stop the application that is listening on port 8080:
+
+```sh
+lsof -nP -iTCP:8080 -sTCP:LISTEN -t | xargs kill
+```
+
+If it is running in the terminal where you started it, press `Ctrl+C` there instead.
+
 
 ## See the demo in your browser
 
