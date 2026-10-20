@@ -134,6 +134,10 @@
 
         $scope.removeStore = function (store) {
           $http.delete("/store/" + store.id).then(function () {
+            if ($scope.storeForm.id == store.id) {
+              $scope.storeForm = { id: null, name: "", quantityProductsInStock: 0 };
+            }
+            $scope.storeError = null;
             _refreshFulfilmentData();
           }, function (response) {
             $scope.storeError = _message(response);
